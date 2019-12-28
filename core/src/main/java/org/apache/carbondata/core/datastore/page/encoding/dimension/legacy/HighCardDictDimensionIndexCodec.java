@@ -17,6 +17,8 @@
 
 package org.apache.carbondata.core.datastore.page.encoding.dimension.legacy;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +30,7 @@ import org.apache.carbondata.core.datastore.compression.Compressor;
 import org.apache.carbondata.core.datastore.compression.CompressorFactory;
 import org.apache.carbondata.core.datastore.page.ColumnPage;
 import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoder;
+import org.apache.carbondata.core.util.ByteBufferUtils;
 import org.apache.carbondata.core.util.ByteUtil;
 import org.apache.carbondata.format.Encoding;
 
@@ -55,18 +58,20 @@ public class HighCardDictDimensionIndexCodec extends IndexStorageCodec {
       @Override
       protected void encodeIndexStorage(ColumnPage input) {
         BlockIndexerStorage<byte[][]> indexStorage;
-        byte[][] data = input.getByteArrayPage();
         boolean isDictionary = input.isLocalDictGeneratedPage();
-        if (isInvertedIndex) {
-          indexStorage = new BlockIndexerStorageForShort(data, isDictionary, !isDictionary, isSort);
-        } else {
-          indexStorage =
-              new BlockIndexerStorageForNoInvertedIndexForShort(data, isDictionary);
-        }
-        byte[] flattened = ByteUtil.flatten(indexStorage.getDataPage());
         Compressor compressor = CompressorFactory.getInstance().getCompressor(
             input.getColumnCompressorName());
-        super.compressedDataPage = compressor.compressByte(flattened);
+        if (isInvertedIndex) {
+          byte[][] data = input.getByteArrayPage();
+          indexStorage = new BlockIndexerStorageForShort(data, isDictionary, !isDictionary, isSort);
+          byte[] flattened = ByteUtil.flatten(indexStorage.getDataPage());
+          super.compressedDataPage = compressor.compressByte(flattened);
+        } else {
+          indexStorage = new BlockIndexerStorageForNoInvertedIndexForShort(input, isDictionary);
+          ByteBuffer uncompressed = ((BlockIndexerStorageForNoInvertedIndexForShort) indexStorage)
+              .dataPageByteBuffer;
+          super.compressedDataPage = compressor.compressByte(uncompressed);
+        }
         super.indexStorage = indexStorage;
       }
 

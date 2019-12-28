@@ -19,6 +19,7 @@ package org.apache.carbondata.core.datastore.compression;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.common.logging.LogServiceFactory;
 
@@ -55,6 +56,20 @@ public class SnappyCompressor extends AbstractCompressor {
   @Override
   public String getName() {
     return "snappy";
+  }
+
+  @Override
+  public byte[] compressByte(ByteBuffer unCompInput) {
+    try {
+      if (unCompInput.isDirect()) {
+        return Snappy.rawCompress(unCompInput, unCompInput.capacity());
+      } else {
+        return compressByte(unCompInput.array());
+      }
+    } catch (IOException e) {
+      LOGGER.error(e.getMessage(), e);
+      throw new RuntimeException(e);
+    }
   }
 
   @Override

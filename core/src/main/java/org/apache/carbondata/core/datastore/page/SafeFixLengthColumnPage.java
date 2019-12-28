@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoderMeta;
 import org.apache.carbondata.core.metadata.datatype.DataType;
@@ -287,6 +288,16 @@ public class SafeFixLengthColumnPage extends ColumnPage {
       data[i] = fixedLengthdata[i];
     }
     return data;
+  }
+
+  @Override
+  public ByteBuffer getFlattedByteBufferPage() {
+    return ByteBuffer.wrap(ByteUtil.flatten(fixedLengthdata));
+  }
+
+  @Override
+  public ByteBuffer getByteBufferRow(int rowId) {
+    return ByteBuffer.wrap(fixedLengthdata[rowId]);
   }
 
   @Override

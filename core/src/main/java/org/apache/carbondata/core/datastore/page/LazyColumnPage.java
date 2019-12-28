@@ -19,6 +19,7 @@ package org.apache.carbondata.core.datastore.page;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.core.metadata.datatype.DataType;
 import org.apache.carbondata.core.metadata.datatype.DataTypes;
@@ -280,6 +281,16 @@ public class LazyColumnPage extends ColumnPage {
 
   @Override
   public void putBytes(int rowId, byte[] bytes, int offset, int length) {
+    throw new UnsupportedOperationException("internal error");
+  }
+
+  @Override
+  public ByteBuffer getFlattedByteBufferPage() {
+    throw new UnsupportedOperationException("internal error");
+  }
+
+  @Override
+  public ByteBuffer getByteBufferRow(int rowId) {
     throw new UnsupportedOperationException("internal error");
   }
 

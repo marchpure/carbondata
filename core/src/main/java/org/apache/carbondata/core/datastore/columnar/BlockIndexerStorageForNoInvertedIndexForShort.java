@@ -17,10 +17,14 @@
 
 package org.apache.carbondata.core.datastore.columnar;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
+import org.apache.carbondata.core.datastore.page.ColumnPage;
+import org.apache.carbondata.core.memory.CarbonUnsafe;
+import org.apache.carbondata.core.util.ByteBufferUtils;
 import org.apache.carbondata.core.util.ByteUtil;
 
 /**
@@ -32,6 +36,10 @@ public class BlockIndexerStorageForNoInvertedIndexForShort extends BlockIndexerS
    * column data
    */
   private byte[][] dataPage;
+
+  private ColumnPage dataColumnPage;
+
+  public ByteBuffer dataPageByteBuffer;
 
   private short[] dataRlePage;
 
@@ -45,6 +53,53 @@ public class BlockIndexerStorageForNoInvertedIndexForShort extends BlockIndexerS
       rleEncodeOnData(actualDataList);
     }
   }
+
+  public BlockIndexerStorageForNoInvertedIndexForShort(ColumnPage dataColumnPage, boolean applyRLE) {
+    this.dataColumnPage = dataColumnPage;
+    if (applyRLE) {
+      rleEncodeOnData();
+    } else {
+      this.dataPageByteBuffer = dataColumnPage.getFlattedByteBufferPage();
+    }
+  }
+
+  private void rleEncodeOnData() {
+    ByteBuffer prvKey = dataColumnPage.getByteBufferRow(0);
+    List<Integer> list = new ArrayList<>(dataColumnPage.getPageSize() / 2);
+    int totalLength = 0;
+    list.add(0);
+    totalLength += prvKey.limit();
+    short counter = 1;
+    short start = 0;
+    List<Short> map = new ArrayList<>(CarbonCommonConstants.CONSTANT_SIZE_TEN);
+    for (int i = 1; i < dataColumnPage.getPageSize(); i++) {
+      ByteBuffer currentKey = dataColumnPage.getByteBufferRow(i);
+      if (ByteBufferUtils.compareTo(prvKey, currentKey) != 0) {
+        prvKey = currentKey;
+        list.add(i);
+        totalLength += currentKey.limit();
+        map.add(start);
+        map.add(counter);
+        start += counter;
+        counter = 1;
+        continue;
+      }
+      counter++;
+    }
+    map.add(start);
+    map.add(counter);
+    // if rle is index size is more than 70% then rle wont give any benefit
+    // so better to avoid rle index and write data as it is
+    boolean useRle = (((list.size() + map.size()) * 100) / dataColumnPage.getPageSize()) < 70;
+    if (useRle) {
+      this.dataPageByteBuffer = convertToDataPageByteBuffer(list, totalLength);
+      dataRlePage = convertToArray(map);
+    } else {
+      this.dataPageByteBuffer = dataColumnPage.getFlattedByteBufferPage();
+      dataRlePage = new short[0];
+    }
+  }
+
 
   private void rleEncodeOnData(List<byte[]> actualDataList) {
     byte[] prvKey = actualDataList.get(0);
@@ -86,6 +141,16 @@ public class BlockIndexerStorageForNoInvertedIndexForShort extends BlockIndexerS
     }
     return shortArray;
   }
+
+  private ByteBuffer convertToDataPageByteBuffer(List<Integer> list, int totalLength) {
+    ByteBuffer rleDataPageByteBuffer = ByteBufferUtils.allocate(totalLength, false);
+    for (int i = 0; i < list.size(); i++) {
+      ByteBufferUtils.copyFromBufferToBuffer(dataColumnPage.getByteBufferRow(list.get(i)),
+          rleDataPageByteBuffer);
+    }
+    return rleDataPageByteBuffer;
+  }
+
 
   public short[] getDataRlePage() {
     return dataRlePage;

@@ -20,6 +20,7 @@ package org.apache.carbondata.core.datastore.page.encoding.dimension.legacy;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
 import org.apache.carbondata.core.datastore.columnar.BlockIndexerStorage;
@@ -32,12 +33,12 @@ import org.apache.carbondata.format.SortState;
 
 public abstract class IndexStorageEncoder extends ColumnPageEncoder {
   BlockIndexerStorage indexStorage;
-  byte[] compressedDataPage;
+  ByteBuffer compressedDataPage;
 
   abstract void encodeIndexStorage(ColumnPage inputPage);
 
   @Override
-  protected byte[] encodeData(ColumnPage input) throws MemoryException, IOException {
+  protected ByteBuffer encodeData(ColumnPage input) throws MemoryException, IOException {
     encodeIndexStorage(input);
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     DataOutputStream out = new DataOutputStream(stream);

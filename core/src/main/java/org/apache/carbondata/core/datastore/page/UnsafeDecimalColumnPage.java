@@ -18,6 +18,7 @@
 package org.apache.carbondata.core.datastore.page;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoderMeta;
 import org.apache.carbondata.core.memory.CarbonUnsafe;
@@ -146,6 +147,16 @@ public class UnsafeDecimalColumnPage extends DecimalColumnPage {
   public void putInt(int rowId, int value) {
     long offset = (long)rowId << intBits;
     CarbonUnsafe.getUnsafe().putInt(baseAddress, baseOffset + offset, value);
+  }
+
+  @Override
+  public ByteBuffer getFlattedByteBufferPage() {
+    throw new UnsupportedOperationException("internal error");
+  }
+
+  @Override
+  public ByteBuffer getByteBufferRow(int rowId) {
+    throw new UnsupportedOperationException("internal error");
   }
 
   @Override

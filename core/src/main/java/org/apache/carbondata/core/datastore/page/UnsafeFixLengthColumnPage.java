@@ -18,6 +18,7 @@
 package org.apache.carbondata.core.datastore.page;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoderMeta;
 import org.apache.carbondata.core.memory.CarbonUnsafe;
@@ -25,6 +26,7 @@ import org.apache.carbondata.core.memory.MemoryBlock;
 import org.apache.carbondata.core.memory.MemoryException;
 import org.apache.carbondata.core.memory.UnsafeMemoryManager;
 import org.apache.carbondata.core.metadata.datatype.DataTypes;
+import org.apache.carbondata.core.util.ByteBufferUtils;
 import org.apache.carbondata.core.util.ByteUtil;
 import org.apache.carbondata.core.util.ThreadLocalTaskInfo;
 
@@ -387,6 +389,21 @@ public class UnsafeFixLengthColumnPage extends ColumnPage {
       offset += eachRowSize;
     }
     return data;
+  }
+
+  @Override
+  public ByteBuffer getFlattedByteBufferPage() {
+    long address = baseOffset;
+    int capacity = getEndLoop() * eachRowSize;
+    ByteBuffer curBuffer = ByteBufferUtils.wrapAddress(address, capacity, true);
+    return curBuffer;
+  }
+
+  @Override
+  public ByteBuffer getByteBufferRow(int rowId) {
+    long address = baseOffset + rowId * eachRowSize;
+    ByteBuffer curBuffer = ByteBufferUtils.wrapAddress(address, eachRowSize, true);
+    return curBuffer;
   }
 
   @Override

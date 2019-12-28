@@ -19,6 +19,7 @@ package org.apache.carbondata.core.datastore.page;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import org.apache.carbondata.common.logging.LogServiceFactory;
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
@@ -144,6 +145,24 @@ public class LocalDictColumnPage extends ColumnPage {
     }
     if (pageSize <= rowId) {
       pageSize = rowId + 1;
+    }
+  }
+
+  @Override
+  public ByteBuffer getFlattedByteBufferPage() {
+    if (null != pageLevelDictionary) {
+      return encodedDataColumnPage.getFlattedByteBufferPage();
+    } else {
+      return actualDataColumnPage.getFlattedByteBufferPage();
+    }
+  }
+
+  @Override
+  public ByteBuffer getByteBufferRow(int rowId) {
+    if (null != pageLevelDictionary) {
+      return encodedDataColumnPage.getByteBufferRow(rowId);
+    } else {
+      return actualDataColumnPage.getByteBufferRow(rowId);
     }
   }
 

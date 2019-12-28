@@ -17,18 +17,22 @@
 
 package org.apache.carbondata.core.datastore.page;
 
-import java.math.BigDecimal;
-
 import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoderMeta;
 import org.apache.carbondata.core.memory.CarbonUnsafe;
 import org.apache.carbondata.core.memory.MemoryException;
 import org.apache.carbondata.core.memory.UnsafeMemoryManager;
 import org.apache.carbondata.core.metadata.datatype.DataTypes;
+import org.apache.carbondata.core.util.ByteBufferUtils;
+
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 /**
  * This extension uses unsafe memory to store page data, for variable length data type (string)
  */
 public class UnsafeVarLengthColumnPage extends VarLengthColumnPageBase {
+
+
 
   /**
    * create a page
@@ -103,6 +107,21 @@ public class UnsafeVarLengthColumnPage extends VarLengthColumnPageBase {
     return bytes;
   }
 
+  public ByteBuffer getFlattedByteBufferPage() {
+    int capacity = rowOffset.getInt(rowOffset.getActualRowCount()-1) - rowOffset.getInt(0);
+    long address = baseOffset + rowOffset.getInt(0);
+    ByteBuffer curBuffer = ByteBufferUtils.wrapAddress(address, capacity, true);
+    return curBuffer;
+  }
+
+  public ByteBuffer getByteBufferRow(int rowId) {
+    int length = rowOffset.getInt(rowId + 1) - rowOffset.getInt(rowId);
+    long address = baseOffset + rowOffset.getInt(rowId);
+    ByteBuffer curBuffer = ByteBufferUtils.wrapAddress(address, length, true);
+    return curBuffer;
+  }
+
+
   @Override
   public byte[][] getByteArrayPage() {
     byte[][] bytes = new byte[rowOffset.getActualRowCount() - 1][];
@@ -121,5 +140,4 @@ public class UnsafeVarLengthColumnPage extends VarLengthColumnPageBase {
     CarbonUnsafe.getUnsafe().copyMemory(baseAddress, baseOffset + rowOffset.getInt(rowId),
         dest, CarbonUnsafe.BYTE_ARRAY_OFFSET + destOffset, length);
   }
-
 }

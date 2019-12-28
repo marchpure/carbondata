@@ -20,7 +20,10 @@ package org.apache.carbondata.core.datastore.compression;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
+import org.apache.avro.util.ByteBufferInputStream;
+import org.apache.carbondata.core.util.ByteBufferUtils;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 
@@ -91,6 +94,16 @@ public class GzipCompressor extends AbstractCompressor {
       throw new RuntimeException("Error during Decompression step ", e);
     }
     return byteOutputStream.toByteArray();
+  }
+
+  @Override
+  public byte[] compressByte(ByteBuffer unCompInput) {
+    if (unCompInput.isDirect()) {
+      byte[] unCompInputByteArray = ByteBufferUtils.copyOfRange(unCompInput, 0, unCompInput.limit());
+      return compressByte(unCompInputByteArray);
+    } else {
+      return compressByte(unCompInput.array());
+    }
   }
 
   @Override

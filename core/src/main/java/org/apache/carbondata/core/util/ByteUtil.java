@@ -20,6 +20,7 @@ package org.apache.carbondata.core.util;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
 import org.apache.carbondata.core.memory.CarbonUnsafe;
@@ -670,6 +671,23 @@ public final class ByteUtil {
     for (int i = 0; i < input.length; i++) {
       System.arraycopy(input[i], 0, flattenedData, pos, input[i].length);
       pos += input[i].length;
+    }
+    return flattenedData;
+  }
+
+  /**
+   * flatten input byte[][] to byte[] and return
+   */
+  public static byte[] flatten(List<byte[]> input) {
+    int totalSize = 0;
+    for (int i = 0; i < input.size(); i++) {
+      totalSize += input.get(i).length;
+    }
+    byte[] flattenedData = new byte[totalSize];
+    int pos = 0;
+    for (int i = 0; i < input.size(); i++) {
+      System.arraycopy(input.get(i), 0, flattenedData, pos, input.get(i).length);
+      pos += input.get(i).length;
     }
     return flattenedData;
   }
