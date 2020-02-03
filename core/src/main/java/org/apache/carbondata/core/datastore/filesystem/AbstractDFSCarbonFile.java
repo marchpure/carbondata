@@ -513,6 +513,22 @@ public abstract class AbstractDFSCarbonFile implements CarbonFile {
     return carbonFiles;
   }
 
+  public CarbonFile[] listCarbonFilesByCountIterator(boolean recursive, Path path, int fileCount) throws IOException {
+    List<CarbonFile> carbonFiles = new ArrayList<>();
+    FileStatus fileStatus = fileSystem.getFileStatus(path);
+    if (null != fileStatus && fileStatus.isDirectory()) {
+      RemoteIterator<LocatedFileStatus> listStatus = fileSystem.listFiles(path, recursive);
+      int i = 0;
+      while (i < fileCount && listStatus.hasNext()) {
+        LocatedFileStatus locatedFileStatus = listStatus.next();
+        CarbonFile carbonFile = FileFactory.getCarbonFile(locatedFileStatus.getPath().toString());
+        carbonFiles.add(carbonFile);
+        i++;
+      }
+    }
+    return carbonFiles.toArray(new CarbonFile[carbonFiles.size()]);
+  }
+
   @Override
   public String[] getLocations() throws IOException {
     BlockLocation[] blkLocations;

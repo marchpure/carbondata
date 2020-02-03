@@ -182,7 +182,7 @@ final class CarbonS3Writer extends CarbonWriter {
       try {
         String stageInputPath = CarbonTablePath.getStageDir(
             table.getAbsoluteTableIdentifier().getTablePath()) +
-            CarbonCommonConstants.FILE_SEPARATOR + UUID.randomUUID();
+            CarbonCommonConstants.FILE_SEPARATOR + System.currentTimeMillis() + UUID.randomUUID();
         StageManager.writeStageInput(stageInputPath, stageInput);
       } catch (Throwable exception) {
         this.deleteSegmentDataFilesQuietly(dataPath);

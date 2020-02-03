@@ -23,20 +23,20 @@ import java.util.Collections
 import java.util.concurrent.{Executors, ExecutorService}
 
 import scala.collection.JavaConverters._
-
 import com.google.gson.Gson
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.InputSplit
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{CarbonEnv, Row, SparkSession}
 import org.apache.spark.sql.execution.command.{Checker, DataCommand}
 import org.apache.spark.sql.util.SparkSQLUtil
-
 import org.apache.carbondata.common.exceptions.sql.MalformedCarbonCommandException
 import org.apache.carbondata.common.logging.LogServiceFactory
 import org.apache.carbondata.core.constants.CarbonCommonConstants
-import org.apache.carbondata.core.datastore.filesystem.CarbonFile
+import org.apache.carbondata.core.datastore.filesystem.{AbstractDFSCarbonFile, CarbonFile, HDFSCarbonFile}
 import org.apache.carbondata.core.datastore.impl.FileFactory
+import org.apache.carbondata.core.datastore.impl.FileFactory.FileType
 import org.apache.carbondata.core.locks.{CarbonLockFactory, CarbonLockUtil, ICarbonLock, LockUsage}
 import org.apache.carbondata.core.metadata.{ColumnarFormatVersion, SegmentFileStore}
 import org.apache.carbondata.core.metadata.schema.table.CarbonTable
@@ -446,7 +446,18 @@ case class CarbonInsertFromStageCommand(
   ): Array[(CarbonFile, CarbonFile)] = {
     val dir = FileFactory.getCarbonFile(loadDetailsDir, hadoopConf)
     if (dir.exists()) {
-      val allFiles = dir.listFiles()
+      val listAll = false
+      val allFiles = if (listAll || batchSize > 10000) {
+        dir.listFiles()
+      } else {
+        dir match {
+          case _: AbstractDFSCarbonFile =>
+            val listed = dir.asInstanceOf[AbstractDFSCarbonFile].listCarbonFilesByCountIterator(false,
+              new Path(loadDetailsDir), batchSize * 2)
+            listed
+          case _ => dir.listFiles()
+        }
+      }
       val successFiles = allFiles.filter { file =>
         file.getName.endsWith(CarbonTablePath.SUCCESS_FILE_SUBFIX)
       }.map { file =>
