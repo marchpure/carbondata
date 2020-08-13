@@ -245,9 +245,16 @@ public class AdaptiveFloatingCodec extends AdaptiveCodec {
       CarbonColumnVector vector = vectorInfo.vector;
       BitSet deletedRows = vectorInfo.deletedRows;
       DataType vectorDataType = vector.getType();
-      vector = ColumnarVectorWrapperDirectFactory
-          .getDirectVectorWrapperFactory(vector, null, nullBits, deletedRows, true, false);
       int rowId = 0;
+      VectorUtil vectorUtil = new VectorUtil(vectorInfo, pageSize, vector, vectorDataType)
+          .checkAndUpdateToChildVector();
+      // get the updated values if it is decode of child vector
+      pageSize = vectorUtil.getPageSize();
+      vector = vectorUtil.getVector();
+      vectorDataType = vectorUtil.getVectorDataType();
+      vector = ColumnarVectorWrapperDirectFactory
+          .getDirectVectorWrapperFactory(vector, vectorInfo.invertedIndex, nullBits,
+              vectorInfo.deletedRows, true, false);
       if (vectorDataType == DataTypes.FLOAT) {
         if (pageDataType == DataTypes.BOOLEAN || pageDataType == DataTypes.BYTE) {
           for (int i = 0; i < pageSize; i++) {
@@ -268,6 +275,11 @@ public class AdaptiveFloatingCodec extends AdaptiveCodec {
           int size = pageSize * DataTypes.INT.getSizeInBytes();
           for (int i = 0; i < size; i += DataTypes.INT.getSizeInBytes()) {
             vector.putFloat(rowId++, (ByteUtil.toIntLittleEndian(pageData, i) / floatFactor));
+          }
+        } else if (pageDataType == DataTypes.LONG) {
+          int size = pageSize * DataTypes.LONG.getSizeInBytes();
+          for (int i = 0; i < size; i += DataTypes.LONG.getSizeInBytes()) {
+            vector.putFloat(rowId++, (float) (ByteUtil.toLongLittleEndian(pageData, i) / factor));
           }
         } else {
           throw new RuntimeException("internal error: " + this.toString());

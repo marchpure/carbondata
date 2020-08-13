@@ -21,6 +21,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Stack;
 
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
 import org.apache.carbondata.core.datastore.columnar.BlockIndexerStorage;
@@ -33,6 +35,9 @@ import org.apache.carbondata.core.datastore.page.encoding.ColumnPageEncoderMeta;
 import org.apache.carbondata.core.datastore.page.statistics.SimpleStatsResult;
 import org.apache.carbondata.core.metadata.datatype.DataType;
 import org.apache.carbondata.core.metadata.datatype.DataTypes;
+import org.apache.carbondata.core.scan.result.vector.CarbonColumnVector;
+import org.apache.carbondata.core.scan.result.vector.ColumnVectorInfo;
+import org.apache.carbondata.core.scan.result.vector.impl.CarbonColumnVectorImpl;
 import org.apache.carbondata.format.DataChunk2;
 import org.apache.carbondata.format.SortState;
 
@@ -258,6 +263,54 @@ public abstract class AdaptiveCodec implements ColumnPageCodec {
 
   protected String debugInfo() {
     return this.toString();
+  }
+
+  // Utility class to update current vector to child vector in case of complex type handling
+  public static class VectorUtil {
+    private ColumnVectorInfo vectorInfo;
+    private int pageSize;
+    private CarbonColumnVector vector;
+    private DataType vectorDataType;
+
+    public VectorUtil(ColumnVectorInfo vectorInfo, int pageSize, CarbonColumnVector vector,
+        DataType vectorDataType) {
+      this.vectorInfo = vectorInfo;
+      this.pageSize = pageSize;
+      this.vector = vector;
+      this.vectorDataType = vectorDataType;
+    }
+
+    public int getPageSize() {
+      return pageSize;
+    }
+
+    public CarbonColumnVector getVector() {
+      return vector;
+    }
+
+    public DataType getVectorDataType() {
+      return vectorDataType;
+    }
+
+    public VectorUtil checkAndUpdateToChildVector() {
+      Stack<CarbonColumnVector> vectorStack = vectorInfo.getVectorStack();
+      if (vectorStack != null && vectorStack.peek() != null && vectorDataType.isComplexType()) {
+        if (vectorDataType.getName().equals("ARRAY")) {
+          ArrayList<Integer> childElementsForEachRow =
+              ((CarbonColumnVectorImpl) vector.getColumnVector())
+                  .getNumberOfChildrenElementsInEachRow();
+          int pageSizeNew = 0;
+          for (int val : childElementsForEachRow) {
+            pageSizeNew += val;
+          }
+          pageSize = pageSizeNew;
+        }
+        // child vector flow, so fill the child vector
+        vector = vectorStack.pop();
+        vectorDataType = vector.getType();
+      }
+      return this;
+    }
   }
 
 }

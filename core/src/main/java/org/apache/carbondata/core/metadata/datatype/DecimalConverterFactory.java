@@ -19,11 +19,15 @@ package org.apache.carbondata.core.metadata.datatype;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Stack;
 
 import org.apache.carbondata.core.scan.result.vector.CarbonColumnVector;
 import org.apache.carbondata.core.scan.result.vector.ColumnVectorInfo;
+import org.apache.carbondata.core.scan.result.vector.impl.CarbonColumnVectorImpl;
 import org.apache.carbondata.core.scan.result.vector.impl.directread.ColumnarVectorWrapperDirectFactory;
 import org.apache.carbondata.core.util.ByteUtil;
 import org.apache.carbondata.core.util.DataTypeUtil;
@@ -112,8 +116,30 @@ public final class DecimalConverterFactory {
       // TODO we need to find way to directly set to vector with out conversion. This way is very
       // inefficient.
       CarbonColumnVector vector = getCarbonColumnVector(vectorInfo, nullBitSet);
-      int precision = vectorInfo.measure.getMeasure().getPrecision();
-      int newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      int precision = 0;
+      int newMeasureScale = 0;
+      if (vectorInfo.measure == null) {
+        Stack<CarbonColumnVector> vectorStack = vectorInfo.getVectorStack();
+        if (vectorStack != null && vectorStack.peek() != null && vector.getType().isComplexType()) {
+          if (vector.getType().getName().equals("ARRAY")) {
+            ArrayList<Integer> childElementsForEachRow =
+                ((CarbonColumnVectorImpl) vector.getColumnVector())
+                    .getNumberOfChildrenElementsInEachRow();
+            int pageSizeNew = 0;
+            for (int val : childElementsForEachRow) {
+              pageSizeNew += val;
+            }
+            size = pageSizeNew;
+          }
+          // TODO: check if need to wrapped with nul bitset here and below 2 places
+          vector = vectorStack.pop();
+          precision = ((DecimalType) vector.getType()).getPrecision();
+          newMeasureScale = ((DecimalType) vector.getType()).getScale();
+        }
+      } else {
+        precision = vectorInfo.measure.getMeasure().getPrecision();
+        newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      }
       if (!(valuesToBeConverted instanceof byte[])) {
         throw new UnsupportedOperationException("This object type " + valuesToBeConverted.getClass()
             + " is not supported in this method");
@@ -186,6 +212,44 @@ public final class DecimalConverterFactory {
             }
             vector.putDecimal(i, value, precision);
           }
+        }
+      } else if (pageType == DataTypes.BYTE_ARRAY) {
+        int offset = 0;
+        for (int j = 0; j < size; j++) {
+          byte[] stringLen = new byte[DataTypes.INT.getSizeInBytes()];
+          System.arraycopy(data, offset, stringLen, 0, stringLen.length);
+          ByteBuffer wrapped = ByteBuffer.wrap(stringLen, 0, DataTypes.INT.getSizeInBytes());
+          int len = wrapped.getInt();
+          offset += DataTypes.INT.getSizeInBytes();
+          if (len == 0) {
+            vector.putNull(j);
+            continue;
+          }
+          // add scale offset
+          offset += 1;
+          // remove scale from the length
+          len -= 1;
+          byte[] row = new byte[len];
+          System.arraycopy(data, offset, row, 0, len);
+          long val;
+          if (len == 1) {
+            val = row[0];
+          } else if (len == 2) {
+            val = ByteUtil.toShort(row, 0);
+          } else if (len == 4) {
+            val = ByteUtil.toInt(row, 0);
+          } else if (len == 3) {
+            val = ByteUtil.valueOf3Bytes(row, 0);
+          } else {
+            // TODO: check if other value can come
+            val = ByteUtil.toLong(row, 0, len);
+          }
+          BigDecimal value = BigDecimal.valueOf(val, scale);
+          if (value.scale() < newMeasureScale) {
+            value = value.setScale(newMeasureScale);
+          }
+          vector.putDecimal(j, value, precision);
+          offset += len;
         }
       }
     }
@@ -278,11 +342,33 @@ public final class DecimalConverterFactory {
     public void fillVector(Object valuesToBeConverted, int size,
         ColumnVectorInfo vectorInfo, BitSet nullBitSet, DataType pageType) {
       CarbonColumnVector vector = getCarbonColumnVector(vectorInfo, nullBitSet);
-      int precision = vectorInfo.measure.getMeasure().getPrecision();
-      int newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      int precision = 0;
+      int newMeasureScale = 0;
+      if (vectorInfo.measure == null) {
+        Stack<CarbonColumnVector> vectorStack = vectorInfo.getVectorStack();
+        if (vectorStack != null && vectorStack.peek() != null && vector.getType().isComplexType()) {
+          if (vector.getType().getName().equals("ARRAY")) {
+            ArrayList<Integer> childElementsForEachRow =
+                ((CarbonColumnVectorImpl) vector.getColumnVector())
+                    .getNumberOfChildrenElementsInEachRow();
+            int pageSizeNew = 0;
+            for (int val : childElementsForEachRow) {
+              pageSizeNew += val;
+            }
+            size = pageSizeNew;
+          }
+          vector = vectorStack.pop();
+          precision = ((DecimalType) vector.getType()).getPrecision();
+          newMeasureScale = ((DecimalType) vector.getType()).getScale();
+        }
+      } else {
+        precision = vectorInfo.measure.getMeasure().getPrecision();
+        newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      }
       if (scale < newMeasureScale) {
         scale = newMeasureScale;
       }
+      //TODO handle complex child
       if (valuesToBeConverted instanceof byte[][]) {
         byte[][] data = (byte[][]) valuesToBeConverted;
         for (int i = 0; i < size; i++) {
@@ -329,8 +415,30 @@ public final class DecimalConverterFactory {
     public void fillVector(Object valuesToBeConverted, int size,
         ColumnVectorInfo vectorInfo, BitSet nullBitSet, DataType pageType) {
       CarbonColumnVector vector = getCarbonColumnVector(vectorInfo, nullBitSet);
-      int precision = vectorInfo.measure.getMeasure().getPrecision();
-      int newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      int precision = 0;
+      int newMeasureScale = 0;
+      if (vectorInfo.measure == null) {
+        Stack<CarbonColumnVector> vectorStack = vectorInfo.getVectorStack();
+        if (vectorStack != null && vectorStack.peek() != null && vector.getType().isComplexType()) {
+          if (vector.getType().getName().equals("ARRAY")) {
+            ArrayList<Integer> childElementsForEachRow =
+                ((CarbonColumnVectorImpl) vector.getColumnVector())
+                    .getNumberOfChildrenElementsInEachRow();
+            int pageSizeNew = 0;
+            for (int val : childElementsForEachRow) {
+              pageSizeNew += val;
+            }
+            size = pageSizeNew;
+          }
+          vector = vectorStack.pop();
+          precision = ((DecimalType) vector.getType()).getPrecision();
+          newMeasureScale = ((DecimalType) vector.getType()).getScale();
+        }
+      } else {
+        precision = vectorInfo.measure.getMeasure().getPrecision();
+        newMeasureScale = vectorInfo.measure.getMeasure().getScale();
+      }
+      //TODO handle complex child
       if (valuesToBeConverted instanceof byte[][]) {
         byte[][] data = (byte[][]) valuesToBeConverted;
         for (int i = 0; i < size; i++) {

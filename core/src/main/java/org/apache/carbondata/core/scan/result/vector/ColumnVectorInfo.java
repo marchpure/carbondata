@@ -18,6 +18,7 @@
 package org.apache.carbondata.core.scan.result.vector;
 
 import java.util.BitSet;
+import java.util.Stack;
 
 import org.apache.carbondata.core.keygenerator.directdictionary.DirectDictionaryGenerator;
 import org.apache.carbondata.core.metadata.datatype.DecimalConverterFactory;
@@ -39,6 +40,15 @@ public class ColumnVectorInfo implements Comparable<ColumnVectorInfo> {
   public int[] invertedIndex;
   public BitSet deletedRows;
   public DecimalConverterFactory.DecimalConverter decimalConverter;
+  public Stack<CarbonColumnVector> vectorStack = null;
+
+  public Stack<CarbonColumnVector> getVectorStack() {
+    return vectorStack;
+  }
+
+  public void setVectorStack(Stack<CarbonColumnVector> vectorStack) {
+    this.vectorStack = vectorStack;
+  }
 
   @Override
   public int compareTo(ColumnVectorInfo o) {

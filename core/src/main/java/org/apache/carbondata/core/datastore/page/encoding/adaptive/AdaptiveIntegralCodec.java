@@ -287,9 +287,6 @@ public class AdaptiveIntegralCodec extends AdaptiveCodec {
       CarbonColumnVector vector = vectorInfo.vector;
       DataType vectorDataType = vector.getType();
       BitSet deletedRows = vectorInfo.deletedRows;
-      vector = ColumnarVectorWrapperDirectFactory
-          .getDirectVectorWrapperFactory(vector, vectorInfo.invertedIndex, nullBits, deletedRows,
-              true, false);
       fillVector(pageData, vector, vectorDataType, pageDataType, pageSize, vectorInfo, nullBits);
       if ((deletedRows == null || deletedRows.isEmpty())
           && !(vectorInfo.vector instanceof SequentialFill)) {
@@ -305,6 +302,15 @@ public class AdaptiveIntegralCodec extends AdaptiveCodec {
 
     private void fillVector(byte[] pageData, CarbonColumnVector vector, DataType vectorDataType,
         DataType pageDataType, int pageSize, ColumnVectorInfo vectorInfo, BitSet nullBits) {
+      VectorUtil vectorUtil = new VectorUtil(vectorInfo, pageSize, vector, vectorDataType)
+          .checkAndUpdateToChildVector();
+      // get the updated values if it is decode of child vector
+      pageSize = vectorUtil.getPageSize();
+      vector = vectorUtil.getVector();
+      vectorDataType = vectorUtil.getVectorDataType();
+      vector = ColumnarVectorWrapperDirectFactory
+          .getDirectVectorWrapperFactory(vector, vectorInfo.invertedIndex, nullBits,
+              vectorInfo.deletedRows, true, false);
       int rowId = 0;
       if (pageDataType == DataTypes.BOOLEAN || pageDataType == DataTypes.BYTE) {
         if (vectorDataType == DataTypes.SHORT) {
@@ -323,7 +329,7 @@ public class AdaptiveIntegralCodec extends AdaptiveCodec {
           for (int i = 0; i < pageSize; i++) {
             vector.putLong(i, (long) pageData[i] * 1000);
           }
-        } else if (vectorDataType == DataTypes.BOOLEAN) {
+        } else if (vectorDataType == DataTypes.BOOLEAN || vectorDataType == DataTypes.BYTE) {
           vector.putBytes(0, pageSize, pageData, 0);
         } else if (DataTypes.isDecimal(vectorDataType)) {
           DecimalConverterFactory.DecimalConverter decimalConverter = vectorInfo.decimalConverter;

@@ -18,6 +18,7 @@
 package org.apache.carbondata.core.scan.result.vector;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import org.apache.carbondata.core.metadata.datatype.DataType;
 import org.apache.carbondata.core.scan.scanner.LazyPageLoader;
@@ -114,4 +115,20 @@ public interface CarbonColumnVector {
 
   void setLazyPage(LazyPageLoader lazyPage);
 
+  // Add default implementation for interface,
+  // to avoid implementing presto required functions for spark or core module.
+  default List<CarbonColumnVector> getChildrenVector() {
+    return null;
+  }
+
+  // Add default implementation for interface,
+  // to avoid implementing presto required functions for spark or core module.
+  default void putComplexObject(List<Integer> offsetVector) {
+  }
+
+  // Add default implementation for interface,
+  // to avoid implementing presto required functions for spark or core module.
+  default CarbonColumnVector getColumnVector() {
+    return null;
+  }
 }
